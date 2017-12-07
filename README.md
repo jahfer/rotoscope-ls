@@ -1,7 +1,7 @@
 # README
 -------------------
 
-## Sublime Config
+## Sublime Config (LSP plugin)
 
 ```
 {
@@ -9,10 +9,11 @@
   {
     "rotoscope":
     {
-      "command": ["rotoscope-ls", "--stdio"],
+      "command": ["<path-to-rotoscope-ls>/server/out/server.js", "--stdio"],
       "scopes": ["source.ruby"],
       "syntaxes": ["Packages/Ruby/Ruby.sublime-syntax"],
       "languageId": "ruby",
+      "settings": { "maxNumberOfProblems": 25 }
     }
   }
 }
