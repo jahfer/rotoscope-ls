@@ -10,7 +10,7 @@ import {
 	CompletionItemKind
 } from 'vscode-languageserver';
 
-import yargs from 'yargs';
+import * as yargs from 'yargs';
 
 const cli = yargs
 	.option('stdio', {
@@ -28,15 +28,17 @@ const methods = ['node-ipc', 'stdio'];
 const method = methods.find(m => argv[m] != null);
 
 if (method == 'stdio') {
+	console.log("Using stdio as reader/writer");
 	options.reader = process.stdin;
 	options.writer = process.stdout;
 } else {
+	console.log("Using ipc as reader/writer");
 	options.reader = new IPCMessageReader(process);
 	options.writer = new IPCMessageWriter(process);
 }
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
-let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+let connection: IConnection = createConnection(options.reader, options.writer);
 
 // Create a simple text document manager. The text document manager
 // supports full document sync only
