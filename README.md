@@ -9,7 +9,7 @@
   {
     "rotoscope":
     {
-      "command": ["rotoscope-ls", "--stdio],
+      "command": ["rotoscope-ls", "--stdio"],
       "scopes": ["source.ruby"],
       "syntaxes": ["Packages/Ruby/Ruby.sublime-syntax"],
       "languageId": "ruby",
