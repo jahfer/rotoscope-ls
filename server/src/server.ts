@@ -9,10 +9,12 @@
 import {
 	IPCMessageReader, IPCMessageWriter, createConnection, IConnection, TextDocuments, TextDocument,
 	Diagnostic, DiagnosticSeverity, InitializeResult, TextDocumentPositionParams, CompletionItem,
-	CompletionItemKind
+	CompletionItemKind, MarkedString
 } from 'vscode-languageserver';
 
 import * as yargs from 'yargs';
+
+import { Engine, Evaluation, EvaluationType } from './engine';
 
 const cli = yargs
 	.option('stdio', {
@@ -49,6 +51,8 @@ let documents: TextDocuments = new TextDocuments();
 // for open, change and close text document events
 documents.listen(connection);
 
+let engine: Engine = new Engine(documents);
+
 // After the server has started the client sends an initilize request. The server receives
 // in the passed params the rootPath of the workspace plus the client capabilites.
 connection.onInitialize((_params): InitializeResult => {
@@ -59,7 +63,8 @@ connection.onInitialize((_params): InitializeResult => {
 			// Tell the client that the server support code complete
 			completionProvider: {
 				resolveProvider: true
-			}
+			},
+			hoverProvider: true
 		}
 	}
 });
@@ -70,9 +75,37 @@ documents.onDidChangeContent((change) => {
 	validateTextDocument(change.document);
 });
 
+connection.onHover((change) => {
+	const evaluations : Evaluation[] = engine.evaluate(change);
+
+	if (evaluations.length == 0) {
+		return { contents: '' }
+	}
+
+	const markdown : MarkedString[] = evaluations.map((data: Evaluation) => {
+		switch (data.evaluationType) {
+			case EvaluationType.Class: return { language: 'ruby', value: `class ${data.name}` };
+			case EvaluationType.Instance: return `(instance) ${data.class.name}`;
+			case EvaluationType.Method:
+				const separator = (data.method_level == 'class') ? '.' : '#'
+				const caller_separator = (data.caller_method_level == 'class') ? '.' : '#'
+				let mdStr = `(method) \`${data.entity}${separator}${data.method_name}\``;
+				if (data.caller_entity != '<ROOT>')
+					mdStr += `, called by: \`${data.caller_entity}${caller_separator}${data.caller_method_name}\``
+				return mdStr;
+			default:
+				const _exhaustiveCheck: never = data;
+				return _exhaustiveCheck;
+		};
+	});
+
+	return { contents: markdown };
+});
+
 // The settings interface describe the server relevant settings part
 interface Settings {
 	maxNumberOfProblems: number;
+	pathToRotoscopeExport: string;
 }
 
 // hold the maxNumberOfProblems setting
@@ -82,6 +115,9 @@ let maxNumberOfProblems: number;
 connection.onDidChangeConfiguration((change) => {
 	let settings = <Settings>change.settings;
 	maxNumberOfProblems = settings.maxNumberOfProblems || 100;
+	const default_path = `/Users/jahfer/src/throwaway/rotoscope-ls/example_project/.rotoscope`;
+	engine.seed(settings.pathToRotoscopeExport || default_path);
+
 	// Revalidate any open text documents
 	documents.all().forEach(validateTextDocument);
 });
@@ -171,6 +207,8 @@ connection.onDidCloseTextDocument((params) => {
 // Listen on the connection
 connection.listen();
 
-process.stdin.on('close', () => {
-  process.exit(0);
-});
+if (method == 'stdio') {
+	process.stdin.on('close', () => {
+		process.exit(0);
+	});
+}

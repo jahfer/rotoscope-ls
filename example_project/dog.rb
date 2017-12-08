@@ -12,10 +12,10 @@ class Noisemaker
   end
 end
 
-log_file = File.expand_path('dog_trace.log')
+log_file = File.expand_path('.rotoscope')
 puts "Writing to #{log_file}..."
 
-Rotoscope.trace(log_file) do
+Rotoscope.trace(log_file, flatten: true) do
   dog1 = Dog.new
   dog1.bark
 end

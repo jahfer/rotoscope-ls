@@ -1,0 +1,8 @@
+entity,method_name,method_level,filepath,lineno,caller_entity,caller_method_name,caller_method_level
+"Dog","new",class,"dog.rb",19,"<ROOT>","<UNKNOWN>",<UNKNOWN>
+"Dog","initialize",instance,"dog.rb",19,"Dog","new",class
+"Dog","bark",instance,"dog.rb",20,"<ROOT>","<UNKNOWN>",<UNKNOWN>
+"Noisemaker","speak",class,"dog.rb",5,"Dog","bark",instance
+"Noisemaker","puts",class,"dog.rb",11,"Noisemaker","speak",class
+"IO","puts",instance,"dog.rb",11,"Noisemaker","puts",class
+"IO","write",instance,"dog.rb",11,"IO","puts",instance

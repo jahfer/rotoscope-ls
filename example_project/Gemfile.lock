@@ -1,0 +1,13 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    rotoscope (0.3.0.pre.4)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  rotoscope (~> 0.3.0.pre.4)
+
+BUNDLED WITH
+   1.15.4
