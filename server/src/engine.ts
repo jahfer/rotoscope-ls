@@ -11,7 +11,7 @@ const OPERATORS = [
 const TOKEN_SEPARATORS = [' ', '.', '\n', '\r', '\r\n'];
 const SUB_TOKENS = ['(', '[', '|']
 
-interface RotoscopeRow {
+interface MethodCallRecord {
   entity: string;
   method_name: string;
   method_level: string;
@@ -28,7 +28,7 @@ interface Token {
   endIndex: number;
 }
 
-enum EvaluationType { 'Instance', 'Class', 'Method' }
+enum EvaluationType { Instance, Class, Method }
 interface InstanceEvaluation { evaluationType: EvaluationType.Instance; class: ClassEvaluation; }
 interface ClassEvaluation { evaluationType: EvaluationType.Class; name: string; }
 interface MethodEvaluation {
@@ -44,8 +44,8 @@ interface MethodEvaluation {
 type Evaluation = InstanceEvaluation | ClassEvaluation | MethodEvaluation
 
 class Engine {
-  storage: Map<string, RotoscopeRow[]>;
-  documents: TextDocuments;
+  private storage: Map<string, MethodCallRecord[]>;
+  private documents: TextDocuments;
 
   constructor(documents: TextDocuments) {
     this.storage = new Map();
@@ -54,9 +54,9 @@ class Engine {
 
   seed(rotoscope_export_path: string) {
     csv.fromPath(rotoscope_export_path, { headers: true })
-      .on("data", (data: RotoscopeRow) => {
+      .on("data", (data: MethodCallRecord) => {
         const key = `${data.filepath}:${data.lineno}`;
-        let value: RotoscopeRow[] = this.storage.get(key) || [];
+        let value: MethodCallRecord[] = this.storage.get(key) || [];
         value.push(data);
         this.storage.set(key, value);
       });
@@ -68,36 +68,34 @@ class Engine {
     const document = this.documents.get(uri);
 
     const filepath = uri.substr(uri.lastIndexOf('/') + 1);
-    const getTokenMethods = this.methodLookupFn(filepath, line + 1);
+    const tokenMethodsFromLookup = this.methodLookupFn(filepath, line + 1);
     const lineText = document.getText().split(/\r?\n/g)[line];
 
     const maybeToken = this.parseToken(lineText, character);
     if (isNone(maybeToken)) return [];
     const token = maybeToken.unwrap();
 
-    const methodDataForToken = new Maybe<Token>(maybeToken)
-      .then<RotoscopeRow[]>(getTokenMethods)
-      .then<Evaluation[]>(methodData => { return new Some(methodData.map(this.rowToMethodEvaluation)) })
-      .unwrap_or([]);
-
-    if (methodDataForToken.length > 0) {
-      return methodDataForToken;
-    }
-
-    return new Maybe<Token>(this.parseToken(lineText, token.endIndex + 1))
-      .then<RotoscopeRow[]>(getTokenMethods)
-      .then<Evaluation[]>(methodData => { return new Some(methodData.map(this.rowToEntityEvaluation)) })
-      .unwrap_or([]);
+    return new Maybe(maybeToken)
+      .then(tokenMethodsFromLookup)
+      .then(methodData => { return new Some(methodData.map(this.rowToMethodEval)) })
+      .unwrap_or(
+        // We might be on an entity instead of a method. Let's
+        // look at the token to the right, might be a method!
+        new Maybe(this.parseToken(lineText, token.endIndex + 1))
+          .then(tokenMethodsFromLookup)
+          .then(methodData => { return new Some(methodData.map(this.rowToEntityEval)) })
+          .unwrap_or([])
+      );
   }
 
-  private rowToMethodEvaluation(row: RotoscopeRow) : Evaluation {
+  private rowToMethodEval(row: MethodCallRecord) : Evaluation {
     const { filepath, lineno, ...partialMethodEval } = row;
     let methodEval: MethodEvaluation = partialMethodEval as any;
     methodEval.evaluationType = EvaluationType.Method;
     return <MethodEvaluation>methodEval;
   }
 
-  private rowToEntityEvaluation(row: RotoscopeRow) : Evaluation {
+  private rowToEntityEval(row: MethodCallRecord) : Evaluation {
     const classEval: ClassEvaluation = { evaluationType: EvaluationType.Class, name: row.entity };
     if (row.method_level == "class") return classEval;
     return { evaluationType: EvaluationType.Instance, class: classEval }
@@ -138,11 +136,11 @@ class Engine {
     }, -1);
   }
 
-  private methodLookupFn(filepath: string, lineno: number) : (x: Token) => Option<RotoscopeRow[]> {
+  private methodLookupFn(filepath: string, lineno: number) : (x: Token) => Option<MethodCallRecord[]> {
     const key = `${filepath}:${lineno}`;
     const method_calls = this.storage.get(key) || [];
     return (token) => {
-      const calls = method_calls.filter((call: RotoscopeRow) : boolean => {
+      const calls = method_calls.filter((call: MethodCallRecord) : boolean => {
         return call.method_name == token.name;
       });
       return calls.length > 0 ? new Some(calls) : None;
