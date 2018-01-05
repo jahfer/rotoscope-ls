@@ -1,4 +1,7 @@
 # README
+
+![Demo](https://raw.githubusercontent.com/jahfer/rotoscope-ls/master/example_project/rotoscope-ls.gif)
+
 -------------------
 
 ## Sublime Config (LSP plugin)
